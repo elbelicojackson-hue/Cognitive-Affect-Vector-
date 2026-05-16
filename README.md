@@ -3,7 +3,7 @@
 > **A second communication channel for multi-agent LLM consensus.**
 > 给多智能体 LLM 共识系统增加一条与"内容"正交的"姿态"通信通道。
 
-[![Status](https://img.shields.io/badge/status-theoretical_draft-orange)]()
+[![Status](https://img.shields.io/badge/status-theoretical_draft_v0.2-orange)]()
 [![Validation](https://img.shields.io/badge/empirical_validation-pending_KPI--3-yellow)]()
 [![License](https://img.shields.io/badge/license-TBD-lightgrey)]()
 
@@ -47,11 +47,13 @@ T 是 claim 真假。CAV 让群体能够"察言观色"。
 | [§2](#2-细胞模型去除角色引入区室) | 细胞模型：模型不持有角色，只持有区室 |
 | [§3](#3-四链架构双速分离--双推理) | 四链架构：快/慢推理 × 快/慢记忆 |
 | [§4](#4-三层严格熵框架) | 三层严格熵 H₁ / H₂ / H₃ |
+| [**§4½**](#4½-离散化层-dl) | **离散化层 DL：连续 LLM ↔ 离散信息论的桥** |
 | [§5](#5-唯一算法对抗性不动点搜索) | 唯一算法：对抗性不动点搜索 + 外部锚点 |
+| [**§5½**](#5½-离散梯度-dg驱动力学) | **离散梯度 DG：系统的驱动力学** |
 | [**§6**](#6-认知情态向量-cav第二通信通道) | **CAV：第二通信通道（核心）** |
 | [§7](#7-大统一图) | 大统一图 |
 | [§8](#8-与已有架构的对应迁移指南) | 迁移指南 |
-| [§9](#9-可证伪条件-kpis) | 六条可证伪 KPI |
+| [§9](#9-可证伪条件-kpis) | 可证伪 KPI |
 | [§10](#10-开放问题) | 开放问题 |
 | [§11](#11-命名约定) | 命名约定 |
 | [§12](#12-一句话总结) | 一句话总结 |
@@ -70,9 +72,22 @@ V2 给出三个对应的理论替代：
 
 - **细胞模型 (Compartment Model)**：模型不分配角色，分配区室（膜配置）；同一模型在不同膜下产生不同输出。
 - **三层严格熵 (Three-Tier Rigorous Entropy)**：H₁ 自一致性、H₂ 信念分布、H₃ 过程轨迹，全部建立在真信息论上。
+- **离散化层 (Discretization Layer, DL)**：连接连续 LLM 嵌入空间与离散信息论世界的中间层；用 Rényi 谱 + 多尺度方案避免单一 K 的粒度选择困境。
+- **离散梯度 (Discrete Entropy Gradient, DG)**：把整个共识过程改写为有限差分梯度下降——系统不再是被动观测，而是沿 ∇H 方向主动行动。
 - **认知情态向量 (Cognitive Affect Vector, CAV / 𝓒)**：与 content 正交的第二条通信通道，承载置信、犹豫、校准、修复风格等元状态，使群体能"察言观色"。
 
-并给出一个统一的算法骨架——**对抗性不动点搜索 (Adversarial Fixed-Point Search)**——作为"多模型快速识别正确答案 / 形成共识的唯一算法"的候选答案。
+并给出一个统一的算法骨架——**对抗性不动点搜索 (Adversarial Fixed-Point Search)**——作为"多模型快速识别正确答案 / 形成共识的唯一算法"的候选答案。其动力学版本可一句话写完：
+
+```
+state s ∈ S
+action a ∈ A_attack × A_discretize × A_swap × A_oracle × A_chain
+gradient ∇H : A → ℝ              (经代理估计)
+update s_{t+1} = apply(argmax_a [̂∇H(a) − λ·cost(a)], s_t)
+fixed point  ⇔  ∇H(a) ≤ 0  ∀a
+truth        ⇔  fixed point ⊕ external oracle
+```
+
+V2 在数学上就是这六行。
 
 ---
 
@@ -272,6 +287,113 @@ process_penalty = max(0, τ_cov − H_cov)
 
 ---
 
+## 4½. 离散化层 (DL)
+
+> 之前在脊柱里被一句话糊弄过去的"Python 端做一下桶化"，其实是 V2 的成败关键。
+> Shannon 熵的公式建立在**离散**概率空间上，而 LLM 的世界**全是连续的**。
+> 中间这一层翻译——离散化层 DL——必须显式立起来，否则前一节所有"真熵"都是空中楼阁。
+
+### 4½.1 五个无一例外需要离散化的信号
+
+| 信号 | 连续源 | 期望的离散形式 |
+|---|---|---|
+| H₂ 信念熵 | claim 嵌入 ∈ ℝ^D | claim → cluster_id ∈ {1..K} |
+| H_ang 攻击角度熵 | 攻击理由嵌入 | reason → angle_id ∈ {1..K_a} |
+| H_cov 攻击覆盖熵 | step indices | 已离散 ✓ |
+| H₁ 自一致性熵 | K 次采样 | sample → cluster |
+| MI(𝓒ᵢ; 𝓒ⱼ) | CAV ∈ ℝ¹⁰ | 联合分布 ∈ {1..B}² |
+
+### 4½.2 粒度困境
+
+```
+K 太大（每个 claim 独占一桶）→ H₂ 永远高，永远没共识
+K 太小（合并为 2-3 桶）       → H₂ 永远低，永远伪共识
+固定 K                         → 下道题题型不同就崩
+```
+
+这不是超参问题，是结构问题——**单一固定 K 一定错**。
+
+### 4½.3 解法 1：多尺度熵
+
+不要选一个 K，**同时算三个尺度**：
+
+```
+H^(fine)    K = N            "每人都不同"
+H^(med)     K = ⌈√N⌉         "几个阵营"
+H^(coarse)  K ∈ {2, 3}       "赞成 / 反对"
+```
+
+读三元组的形状即可判断系统状态：
+
+| fine | med | coarse | 系统状态 |
+|---|---|---|---|
+| 低 | 低 | 低 | 真群体趋同 |
+| 高 | 高 | 高 | 真分歧 |
+| 高 | 低 | 低 | 大方向一致细节各异（最常见） |
+| 低 | 高 | 低 | 几个阵营内部抱团 — **共谋信号** |
+| **高** | **高** | **低** | **全员同意广泛立场但具体说法各异 — 话术陷阱征兆** |
+
+最后一行就是量子陷阱题在 v1 的形态——多尺度差异本身就是新信号。
+
+### 4½.4 解法 2：Rényi 熵谱
+
+更优雅。Rényi 熵：
+
+```
+H_α(P) = (1 / (1−α)) · log Σ p_i^α     （α ≠ 1）
+H_1(P) = −Σ p_i log p_i                 （Shannon, α = 1）
+H_∞(P) = −log max_i p_i                 （min-entropy）
+H_0(P) = log |support(P)|               （Hartley）
+```
+
+**只需要离散化一次**就能算整条 Rényi 谱：
+
+```
+α 大   → 对模式集中度敏感
+α 小   → 对支撑集大小敏感
+```
+
+谱形态对应共识形态：
+
+| 谱形 | 解读 |
+|---|---|
+| H₀ ≈ H₁ ≈ H_∞ 全相等 | 完全均匀，真分歧 |
+| H₀ 大但 H_∞ 小 | 大众一致 + 少数异议（健康分歧） |
+| H_∞ ≈ H₁ 但 H₀ ≫ H₁ | 一两个主流派 + 噪声残党 |
+| 整条谱都低 | 真共识 |
+
+Rényi 谱也是**离散化质量的鲁棒性测试**——好的离散化下整条谱稳定；坏的离散化下不同 α 会给冲突信号。
+
+### 4½.5 三种离散化方案
+
+```
+A 软离散化     softmax(−τ · d(emb, centroid)) → 分配概率向量
+              下游连续可微（梯度算法用）
+              工程速度最快
+
+B 双向蕴含     c_i ≡ c_j ⇔ NLI(c_i ↔ c_j) 双向 entailment
+              理论 ground truth；K 自动决定；同义改写不变性自动满足
+              成本 O(N²) NLI 推理
+
+C 嵌入 + 自适应阈值  cosine ≥ τ(question) 同簇
+                    τ 从问题语义弥散度自适应
+                    工程默认
+```
+
+**地位**：B 是 ground truth；C 是工程默认；A 是梯度算法的快路径。
+
+### 4½.6 离散化质量 KPI（KPI-7）
+
+```
+KPI-7-a 粒度稳定性：       H_α(谱) 在不同 K 下相对变化 < 10%
+KPI-7-b 同义改写不变性：   |H₂(claims) − H₂(paraphrased)| < 0.05
+KPI-7-c 方案间一致性：     |H₂_A − H₂_B| < δ_AB,  |H₂_C − H₂_B| < δ_CB
+```
+
+如果 KPI-7 不通过，整套熵框架在沙地上盖楼，必须换离散化方案。
+
+---
+
 ## 5. 唯一算法：对抗性不动点搜索
 
 ### 5.1 问题陈述
@@ -338,6 +460,171 @@ truth  ≈  对抗不动点  ⊕  外部 ground oracle
 > **唯一算法 = 对抗性不动点搜索 + 外部锚点优先级覆盖**
 
 前一半保证一致性和速度，后一半保证不会全员一起翻车。
+
+---
+
+## 5½. 离散梯度 (DG)：驱动力学
+
+> 之前所有章节都在算"现在状态熵是多少"，
+> 但 AI 共识不是位置问题，是**运动**问题。
+> 决定下一步动作的不是 H 本身，是 ∇H/∇action。
+> DG 就是把整个系统从"被动观测"升级为"主动行动"的数学层。
+
+### 5½.1 为什么需要梯度
+
+V1 的实际决策是规则填出来的：
+
+```
+if entropy.evidence > 0.35: trigger_verifier()
+if no_attack_for_2_rounds: stop()
+if alpha >= 0.65: emit()
+```
+
+这是被动反应式架构，规则越加越多最后没人能调。
+
+LLM 系统的动作空间**离散且不可微**：
+- 攻击哪个 step（K 个候选）
+- 调用哪个 oracle（M 个外部锚点）
+- 调整离散化粒度 K
+- 替换抱团 agent
+- 激活哪条链 (C₁..C₄)
+
+不能用 autograd（动作不是参数）。
+不能用策略梯度 RL（每步采样 LLM 太贵）。
+**需要一个有限差分式的、定义在离散动作集上的梯度**。
+
+### 5½.2 离散梯度的形式定义
+
+```
+∇H : A → ℝ
+∇H(a) := H(s) − E[ H(s | a) ]
+                   ↑
+              动作 a 之后的期望熵
+```
+
+符号：
+
+```
+∇H > 0   → 动作期望降熵（有利）
+∇H < 0   → 动作增熵（探索）
+∇H ≈ 0   → 无效
+```
+
+**核心挑战**：`E[H(s|a)]` 不能直接算（需要真执行 a）。
+必须有**廉价代理 (cheap proxy)** $\widehat{∇H}$ 满足 `|̂∇H − ∇H| ≤ η`。
+
+### 5½.3 五个动作轴的梯度算子
+
+#### 攻击梯度 ∇H_attack
+
+```
+∇H_attack(step_s)  ≈  H_step(s) · P(attack_succeeds | s)
+
+H_step(s) = 二元熵(P(s 崩塌 | 历史攻击))
+P(succeeds | s) ≈ 1 − reputation(defender) · resilience(s)
+```
+
+UCB 调度本质就是贪心地最大化 ∇H_attack——之前是经验公式，现在显式声明。
+
+#### 离散化梯度 ∇H_discretize
+
+```
+∇H_discretize(K_new)  =  H_α(P_at_K) − H_α(P_at_K_new)
+```
+
+主动调整聚类粒度直到梯度归零。**KPI-7 的动力学版本**。
+
+#### 模型替换梯度 ∇H_swap
+
+```
+∇H_swap(i → j)  =  Δρ
+                ≈  E[I(𝓒_pool−i+j)] − E[I(𝓒_pool)]
+```
+
+替换 agent 后群体姿态独立性变化。
+**死机时这个梯度自动指向"替换最抱团 agent"——这是 DEADLOCK_BREAK 的数学基础**。
+
+#### 锚点梯度 ∇H_oracle
+
+```
+∇H_oracle(query_q)  ≈  P(claim_changes | oracle_q) · current_uncertainty(q)
+```
+
+调用 oracle 哪一个最值得——把外部锚点调用变成最优化问题。
+**v1 用关键词触发，v2 用梯度触发**。
+
+#### 链激活梯度 ∇H_chain
+
+```
+∇H_chain(C_k)  ≈  H_k_prior · cost(C_k)^{-1}
+```
+
+按 ∇H/cost 排序，优先激活高比值链。**实现稀疏激活的数学化**——
+v1 是同时激活所有；v2 可能只激活 1-2 条就够。
+
+### 5½.4 系统改写为梯度下降
+
+整个 V2 主循环：
+
+```python
+def consensus_loop(question):
+    s = init_state(question)
+    while H_system(s) > target and not stuck(s):
+        gradients = compute_all_gradients(s)            # ∇H ∈ ℝ^|A|
+        a_star    = argmax_or_explore(gradients,        # ε-greedy
+                                       λ_cost, ε_t)
+        s_next    = apply_action(a_star, s)
+        ΔH_obs    = H_system(s) − H_system(s_next)
+        update_proxy(a_star, ΔH_obs)                    # 在线学习
+        s = s_next
+        ε_t *= γ
+    return emit(s) if not stuck(s) else escalate(s)
+```
+
+整个系统**变成一个有约束的、在离散动作集上的、最大化负熵增益率的优化器**。
+所有现有零件（UCB / ELO / α / 四态分类）都成了不同梯度的具体计算公式，
+统一在同一目标函数 `Σ_t (̂∇H(a_t) − λ · cost(a_t))` 下。
+
+### 5½.5 收敛速率定理（草稿）
+
+设：
+- 代理误差有界：`|̂∇H(a) − ∇H(a)| ≤ η`
+- ∃ a ∈ A 使 ∇H(a) > 0（系统未死机）
+- λ_cost 选得使 max_a (∇H(a) − λ·cost(a)) > 0
+
+那么：
+
+```
+H_system(t)  ≤  H_system(0) · exp(−γ·t)  +  O(η)
+```
+
+γ 依赖动作集质量。
+
+**这是 V2 的指数级收敛保证——和 V1 那个"5+ 轮经验阈值"的线性级完全不同的量级**。
+
+```
+V1:  Pr(收敛 | t轮)  ≈ 经验上 30% at t=5
+V2:  Pr(收敛 | t轮)  ≥ 1 − exp(−γt)   理论保证
+```
+
+### 5½.6 不动点的梯度刻画
+
+```
+不动点 c  ⇔  ∀a ∈ A : ∇H(c, a) ≤ 0
+```
+
+**这是 §5.3 那个"对抗性不动点"的动力学等价定义**。
+原定义说"任何攻击都被多数否决"，
+现在说"任何动作都不能再降熵"——两者等价（攻击是 A_attack 上的动作；攻击成功 ⇔ ∇H_attack > 0）。
+
+共识三态用 ∇H 重新刻画：
+
+```
+TRUE        ⇔ ∀a: ∇H(a) ≤ 0  ∧  H_system 足够低
+FRAGILE     ⇔ ∃a ∈ A_attack ∪ A_oracle : ∇H(a) > 0
+DEADLOCK    ⇔ 仅 A_swap 上 ∇H > 0  ∧  H_system 仍高
+NONE        ⇔ ∀a: |∇H(a)| > 较大阈值  （还在剧烈变化）
+```
 
 ---
 
@@ -545,7 +832,7 @@ MemDiv = || E[𝓒 | session_chains]  −  E[𝓒 | persistent_chains] ||₂
 ```
                     ┌──────────────────────────────────────────┐
                     │   V2 NeuralComm Protocol                 │
-                    │   (Compartment-based, Two-channel)       │
+                    │   (Compartment, Two-channel, Gradient-driven) │
                     └──────────────┬───────────────────────────┘
                                    │
                     ┌──────────────┴───────────────┐
@@ -558,30 +845,38 @@ MemDiv = || E[𝓒 | session_chains]  −  E[𝓒 | persistent_chains] ||₂
        C₁          C₂          C₃   C₄    每条链产出自己的     CAV 互信息矩阵
    intuit       reflect      expert integrate  𝓒_chain        I(𝓒ᵢ; 𝓒ⱼ)
         │           │           │     │              │              │
-        └─────┬─────┴─────┬─────┴─────┘              │              │
-              ▼           ▼                          │              │
-         claim 嵌入聚类    论证攻防 trace             │              │
-              │           │                          │              │
-              ▼           ▼                          ▼              ▼
-         ┌────────────────────┐         ┌────────────────────────────┐
-         │ 三层严格熵 H₁/H₂/H₃ │         │ CAV 加权 α / 共谋检测 / 死机预警│
-         └─────────┬──────────┘         └─────────────┬──────────────┘
-                   │                                  │
-                   └────────────┬─────────────────────┘
-                                ▼
-                   ┌──────────────────────────────┐
-                   │  对抗性不动点 + 外部锚点      │
-                   │  Adversarial Fixed-Point ⊕ Oracle│
-                   └──────────────┬───────────────┘
-                                  ▼
-                          四态共识分类器
-                   ┌──────────┬──────────┬───────────┬──────┐
-                   │  TRUE    │ FRAGILE  │  DEADLOCK │ NONE │
-                   └────┬─────┴────┬─────┴─────┬─────┴──┬───┘
-                        │          │           │        │
-                        ▼          ▼           ▼        ▼
-                       EMIT   DEEP_ARENA  DEADLOCK   OBSERVE
-                                          _BREAK
+        └───────────┼───────────┘                    │              │
+                    ▼                                ▼              ▼
+              ┌──────────────────────────────────────────────────────────┐
+              │  ★ Discretization Layer (DL) — 连续 ↔ 离散的桥           │
+              │  Rényi 谱 / 多尺度 / 软-硬混合分配                         │
+              └─────────────────────────┬────────────────────────────────┘
+                                        ▼
+              ┌─────────────────────────────────────────────────┐
+              │  三层严格熵 H₁/H₂/H₃ + CAV 加权 α + 共谋检测 + 死机预警 │
+              └─────────────────────────┬───────────────────────┘
+                                        ▼
+              ┌─────────────────────────────────────────────────┐
+              │  ★ Discrete Gradient (DG) — 驱动力学              │
+              │  ∇H_attack / ∇H_discretize / ∇H_swap /            │
+              │  ∇H_oracle / ∇H_chain                              │
+              └─────────────────────────┬───────────────────────┘
+                                        ▼
+              ┌─────────────────────────────────────────────────┐
+              │  对抗性不动点 + 外部锚点                          │
+              │  Adversarial Fixed-Point ⊕ Oracle                │
+              │  收敛刻画：∀a: ∇H(a) ≤ 0                          │
+              └────────────────┬────────────────────────────────┘
+                               ▼
+                       四态共识分类器
+                ┌──────────┬──────────┬───────────┬──────┐
+                │  TRUE    │ FRAGILE  │  DEADLOCK │ NONE │
+                └────┬─────┴────┬─────┴─────┬─────┴──┬───┘
+                     │          │           │        │
+                     ▼          ▼           ▼        ▼
+                    EMIT   DEEP_ARENA  DEADLOCK   OBSERVE
+                                       _BREAK
+                                       (=∇H_swap)
 ```
 
 整个系统的主操作循环：
@@ -589,20 +884,24 @@ MemDiv = || E[𝓒 | session_chains]  −  E[𝓒 | persistent_chains] ||₂
 ```
 1. Question 进入 → membrane 拆出 4 个 input 包
 2. 4 条链并发跑 → 每条产出 (claim, content_state, 𝓒_chain)
-3. 计算：
+3. DL 把所有连续输出离散化（Rényi 谱 / 多尺度）
+4. 计算：
      a) 每条链的 H_state
      b) 链间 meta_belief（速度/记忆轴 KL）
      c) CAV 互信息矩阵 I(𝓒ᵢ; 𝓒ⱼ)
      d) α_CAV-weighted
      e) 共识三态分类
-4. 路由：
+5. DG 计算所有动作轴的 ∇H 向量
+6. 选 a* = argmax_a [̂∇H(a) − λ·cost(a)] (加 ε-探索)
+7. 执行 a*：
      EMIT          → 直接出
      SLOW_OVERRIDE → C₂/C₄ 覆盖
      UPDATE_STORE  → 撤销冲突的旧共识
      DEEP_ARENA    → 调完整 arena
-     DEADLOCK_BREAK→ 注入扰动（换 oracle / 重述 claim / 引入新模型）
+     DEADLOCK_BREAK→ ∇H_swap 主导，替换抱团 agent
      OBSERVE       → 再来一轮
-5. 持久化（claim, 𝓒-trajectory, 共识质量标签）→ store
+8. 观察 ΔH_obs，更新代理模型
+9. 持久化（claim, 𝓒-trajectory, 共识质量标签）→ store
 ```
 
 ---
@@ -615,13 +914,17 @@ MemDiv = || E[𝓒 | session_chains]  −  E[𝓒 | persistent_chains] ||₂
 | Chain-Centric arena | C₄ 整合链 | 包装 |
 | argument_graph | C₂ 反思链 | 包装 |
 | consensus_store | C₃ 专家链 | 包装 |
-| 10 维"熵" | Tier 1/2/3 真熵 | 重写 |
+| 10 维"熵" | Tier 1/2/3 真熵 + Rényi 谱 | 重写 |
+| 字符串 claim 桶化 | DL 离散化层 (B/C/A 三方案) | 替换 |
 | α 共识 | α_CAV-weighted | 升级 |
 | ELO 信誉 | calibration 加权信誉 | 拓展 |
-| UCB 攻击调度 | 信息增益最大化的攻击调度 | 重新解释 |
+| UCB 攻击调度 | ∇H_attack 显式化 | 重新解释 |
+| 关键词触发 oracle | ∇H_oracle 触发 | 替换 |
+| "查证 / 攻击 / 修正" 规则 | DG 主循环 + ε-探索 | 统一 |
 | 联合判定 (3 票) | V 算子的具体实现 | 重新解释 |
 | 共识持久化 | 不动点缓存 + CAV-trajectory 存储 | 拓展 |
 | 三方裁判 | 任意 agent_j ≠ i 的多数决 | 泛化 |
+| stagnation 收敛 | DEADLOCK = 仅 ∇H_swap > 0 | 严格化 |
 
 ---
 
@@ -679,6 +982,34 @@ Accuracy( V2_quad_chain , trap_questions )  >  Accuracy( V1_arena , trap_questio
 
 量子陷阱题、朊病毒论文题等。提升 < 5pp 说明四链架构没贡献。
 
+### KPI-7：离散化稳定性
+
+```
+KPI-7-a 粒度稳定性：       H_α 在不同 K 下相对变化 < 10%
+KPI-7-b 同义改写不变性：   |H₂(claims) − H₂(paraphrased)| < 0.05
+KPI-7-c 方案间一致性：     |H₂_A − H₂_B| < δ_AB
+```
+
+如果 KPI-7 不通过，整套熵框架在沙地上盖楼，必须换离散化方案。
+
+### KPI-8：梯度代理误差
+
+```
+median ( | ̂∇H(a) − ΔH_observed | ) ≤ η_max
+```
+
+η_max 经验值取 0.05。代理过准则 §5½.5 收敛速率定理失效，DG 退化为随机搜索。
+
+### KPI-9：指数收敛
+
+```
+fit  H_system(t) = H₀ · exp(−γt) + β
+要求 γ > γ_min,  β ≤ ε
+```
+
+V2 必须在 benchmark 上展现指数级收敛——这是和 V1 的"经验阈值"最本质的区别。
+γ < γ_min 说明 DG 没起作用，系统退化回 v1 行为。
+
 ---
 
 ## 10. 开放问题
@@ -708,28 +1039,57 @@ Accuracy( V2_quad_chain , trap_questions )  >  Accuracy( V1_arena , trap_questio
 | `𝓒` | Cognitive Affect Vector | `CAV` |
 | `Ψ` | CAV 的随机变量形式 | `psi` |
 | `H₁ / H₂ / H₃` | 三层熵 | `h_self / h_belief / h_process` |
+| `H_α` | Rényi 熵谱 | `renyi_alpha` |
 | `α` | 共识度 (V1) | `alpha_classical` |
 | `α_w` | CAV 加权共识度 | `alpha_weighted` |
 | `ρ` | 模型独立攻击能力 | `independence_capacity` |
 | `S, D, C, V_flow` | 共识三态判别四量 | `saturation, diversity, cohesion, flow_var` |
 | `C₁..C₄` | 四链区室 | `chain_intuition / reflection / expertise / integration` |
+| `DL` | 离散化层 | `discretization_layer` |
+| `DG` | 离散熵梯度 | `discrete_entropy_gradient` |
+| `∇H_axis` | 五个轴的离散梯度 | `grad_attack / grad_discretize / grad_swap / grad_oracle / grad_chain` |
+| `K` | 离散化粒度 | `granularity_K` |
+| `τ` | 聚类阈值 | `cluster_threshold` |
+| `λ` | 成本-增益平衡因子 | `lambda_cost` |
+| `η` | 梯度代理误差上界 | `proxy_error_bound` |
+| `γ` | 指数收敛率 | `convergence_rate` |
 
 ---
 
 ## 12. 一句话总结
 
-**V1 是单通道角色派的 chain-centric debate；V2 是双通道区室派的对抗不动点搜索——内容通道找 claim，情态通道找信任，两者在四链结构里碰撞，在三层严格熵和 CAV 加权下分类共识质量。**
+**V1 是单通道角色派的 chain-centric debate；V2 是双通道区室派的对抗不动点搜索——内容通道找 claim，情态通道 (CAV) 找信任，连续 LLM 输出经离散化层 (DL) 进入严格信息论世界，整个共识过程改写为离散梯度 (DG) 下降的迭代，收敛点既是共识也是真理。**
+
+数学上整套 V2 是这六行：
+
+```
+state s ∈ S
+action a ∈ A_attack × A_discretize × A_swap × A_oracle × A_chain
+gradient ∇H : A → ℝ                  (经代理估计, 误差有界 η)
+update s_{t+1} = apply(argmax_a [̂∇H(a) − λ·cost(a)], s_t)
+fixed point  ⇔  ∇H(a) ≤ 0  ∀a
+truth        ⇔  fixed point ⊕ external oracle
+```
 
 ---
 
 ## 状态与路线图
 
-**当前状态**：理论草稿（本文件）。尚无实证验证。
+**当前状态**：理论草稿 v0.2。尚无实证验证。
+
+**v0.2 新增（本次）**：
+- §4½ 离散化层 (DL)：Rényi 谱 / 多尺度 / B-C-A 三方案 / KPI-7
+- §5½ 离散梯度 (DG)：五轴梯度 / 代理模型 / 收敛速率定理 / KPI-8/9
+- §7 大统一图：DL + DG 进入主循环
+- §11 命名约定：扩充至梯度/收敛量
 
 **最近计划**：
 
 - [ ] **KPI-3 第一关实验**：从 v1 logs 回溯式提取最小 CAV（4 个强分量），跑 6 个 agent 两两 MI 矩阵，检验同源对 vs 异源对的可分辨性。logs 中天然存在一对同源对 `DeepSeek-V4` vs `DeepSeek-V4[verifier]`。
+- [ ] **KPI-7 离散化稳定性实验**：用同一组 claim 的中英文版 / 同义改写版跑 H₂，检查不变性
 - [ ] CAV 提取器原型（NLP 管线）
+- [ ] DL 三方案的 prototype 与对比
+- [ ] DG 代理模型的离线训练
 - [ ] C 内核 ABI（数学层全部下沉到 C，Python 只负责 LLM 调度和 IO）
 - [ ] 双通道仲裁器
 - [ ] 在量子陷阱题、朊病毒论文题等基准上对比 V1 vs V2
